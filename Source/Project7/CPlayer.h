@@ -7,6 +7,11 @@
 #include "CPlayer.generated.h"
 
 struct FInputActionValue;
+class UCapsuleComponent;
+class USpringArmComponent;
+class UCameraComponent;
+class UInputMappingContext;
+class UInputAction;
 
 UCLASS()
 class PROJECT7_API ACPlayer : public APawn
@@ -14,52 +19,57 @@ class PROJECT7_API ACPlayer : public APawn
 	GENERATED_BODY()
 	
 public:
-	// Sets default values for this pawn's properties
-	ACPlayer();
+	ACPlayer(const FObjectInitializer& ObjectInitializer);
 
-	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 	
 protected:
-	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
-
-	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 
 private:
 	void Move(const FInputActionValue& Value);
 	void Rotate(const FInputActionValue& Value);
 	void Jump(const FInputActionValue& Value);
-	void AddGravity(float DeltaTime);
+	void AddGravity(const float DeltaTime);
 
 public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	TObjectPtr<class UCapsuleComponent> Capsule;
+	TObjectPtr<UCapsuleComponent> Capsule;
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	TObjectPtr<USkeletalMeshComponent> Mesh;
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	TObjectPtr<class USpringArmComponent> SpringArm;
+	TObjectPtr<USpringArmComponent> SpringArm;
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	TObjectPtr<class UCameraComponent> Camera;
+	TObjectPtr<UCameraComponent> Camera;
 
 	//===Details===
 	UPROPERTY(EditDefaultsOnly)
-	TObjectPtr<class UInputMappingContext> InputMapping;
+	TObjectPtr<UInputMappingContext> InputMapping;
+
 	UPROPERTY(EditDefaultsOnly)
-	TObjectPtr<class UInputAction> MoveAction;
+	TObjectPtr<UInputAction> MoveAction;
+
 	UPROPERTY(EditDefaultsOnly)
 	TObjectPtr<UInputAction> LookAction;
+
+	UPROPERTY(EditDefaultsOnly)
+	TObjectPtr<UInputAction> JumpAction;
+	
 	UPROPERTY(EditAnywhere)
 	float MoveSpeed = 700;
+
 	UPROPERTY(EditAnywhere)
 	float GravityScale = 0.05f;
+
 	UPROPERTY(EditAnywhere)
-	float JumpScale = 5;
+	float JumpPower = 5;
 
 private:
 	const FVector Gravity = FVector(0.0f, 0.0f, -980.0f);
 
-	FVector GravityAccel;
-	bool bJump;
+	FVector velocity;
 };

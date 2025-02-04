@@ -10,8 +10,7 @@
 #include "EnhancedInputSubsystems.h"
 
 
-// Sets default values
-ACPlayer::ACPlayer()
+ACPlayer::ACPlayer(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
@@ -29,21 +28,18 @@ ACPlayer::ACPlayer()
 	Camera->SetupAttachment(SpringArm);
 }
 
-
-// Called when the game starts or when spawned
 void ACPlayer::BeginPlay()
 {
 	Super::BeginPlay();
 
 	if (APlayerController* PlayerController = Cast<APlayerController>(GetController()))
 	{
-		if (UEnhancedInputLocalPlayerSubsystem* SubSystem =
-			ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
-			SubSystem->AddMappingContext(InputMapping, 0);
+		if (auto* EnhancedInputSystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(
+			PlayerController->GetLocalPlayer()))
+			EnhancedInputSystem->AddMappingContext(InputMapping, 0);
 	}
 }
 
-// Called to bind functionality to input
 void ACPlayer::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
@@ -52,19 +48,15 @@ void ACPlayer::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 	{
 		enhancedInputComp->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ACPlayer::Move);
 		enhancedInputComp->BindAction(LookAction, ETriggerEvent::Triggered, this, &ACPlayer::Rotate);
-		enhancedInputComp->BindAction(MoveAction, ETriggerEvent::Started, this, &ACPlayer::Jump);
+		enhancedInputComp->BindAction(JumpAction, ETriggerEvent::Triggered, this, &ACPlayer::Jump);
 	}
 }
 
-// Called every frame
 void ACPlayer::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
 	AddGravity(DeltaTime);
-
-	if (bJump)
-		AddActorWorldOffset(FVector(0, 0, JumpScale * DeltaTime));
 }
 
 
@@ -74,8 +66,8 @@ void ACPlayer::Move(const FInputActionValue& Value)
 	FRotator yaw = FRotator(0, Camera->GetComponentRotation().Yaw, 0);
 	FVector moveVec = yaw.RotateVector(FVector(input.X, input.Y, 0));
 
-	if (GravityAccel != FVector::ZeroVector)
-		moveVec *= 0.5f;
+	if (velocity != FVector::ZeroVector)
+		moveVec *= 0.3f;
 
 	AddActorWorldOffset(moveVec * MoveSpeed * GetWorld()->DeltaTimeSeconds);
 }
@@ -90,11 +82,9 @@ void ACPlayer::Rotate(const FInputActionValue& Value)
 
 void ACPlayer::Jump(const FInputActionValue& Value)
 {
-	FVector input = Value.Get<FVector>();
-	if (!bJump && input.Z > 0)
-		bJump = true;
-
-	GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, "Jump");
+	bool input = Value.Get<bool>();
+	if (input)
+		velocity.Z = JumpPower;
 }
 
 
@@ -103,18 +93,16 @@ void ACPlayer::AddGravity(float DeltaTime)
 	FCollisionQueryParams collisionParams;
 	collisionParams.AddIgnoredActor(this); // 자신을 무시
 
-	FHitResult hit;
-	// bool bHit = GetWorld()->SweepSingleByChannel(hit, GetActorLocation(), GetActorLocation(), FQuat::Identity,
-	//                                              ECC_Visibility, Capsule->GetCollisionShape(), collisionParams);
+	AddActorLocalOffset(velocity, true);
 
-	AddActorLocalOffset(GravityAccel, true, &hit);
-	
-	GravityAccel += Gravity * GravityScale * DeltaTime;
+	FHitResult hit;
+	GetWorld()->SweepSingleByChannel(hit, GetActorLocation(), GetActorLocation(), FQuat::Identity,
+	                                 ECC_Visibility, Capsule->GetCollisionShape(), collisionParams);
+
+	velocity += Gravity * GravityScale * DeltaTime;
 	if (hit.GetActor() != nullptr)
 	{
-		bJump = false;
-		GravityAccel = FVector::ZeroVector;
-		// SetActorLocation(hit.Location + FVector(0,0, Capsule->GetScaledCapsuleHalfHeight()));
+		velocity = FVector::ZeroVector;
+		SetActorLocation(hit.ImpactPoint + FVector(0, 0, Capsule->GetScaledCapsuleHalfHeight()));
 	}
-
 }
